@@ -16,6 +16,7 @@ export default function Home() {
   const [debouncedSearchTerm] = useDebounce(searchTerm, 400);
   const [isDark, setIsDark] = React.useState<boolean>(false);
   const [mounted, setMounted] = React.useState<boolean>(false);
+  const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
@@ -59,6 +60,30 @@ export default function Home() {
       return lastPageParam + 1;
     },
   });
+
+  React.useEffect(() => {
+    if (!loadMoreRef.current) return;
+    if (!hasNextPage) return;
+
+    const target = loadMoreRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          if (!isFetchingNextPage && hasNextPage) {
+            fetchNextPage();
+          }
+        }
+      },
+      { root: null, rootMargin: "200px", threshold: 0 }
+    );
+
+    observer.observe(target);
+    return () => {
+      observer.unobserve(target);
+      observer.disconnect();
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
   const pages: Array<UnsplashSearchResponse | UnsplashPhoto[]> = (data?.pages ?? []) as Array<UnsplashSearchResponse | UnsplashPhoto[]>;
   return (
     <>
@@ -97,7 +122,7 @@ export default function Home() {
         </div>
       </header>
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-        <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-8 px-16 bg-white dark:bg-black sm:items-start">
+        <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-8 pb-24 px-16 bg-white dark:bg-black sm:items-start">
           <div className="container mx-auto px-4 py-8">
             {status === "pending" && (
             <div className="flex h-64 w-full items-center justify-center">
@@ -121,6 +146,10 @@ export default function Home() {
               ))}
             </div>
           )}
+            {/* Infinite scroll sentinel */}
+            {hasNextPage && (
+            <div ref={loadMoreRef} aria-hidden className="h-10 w-full" />
+          )}
             {hasNextPage && (
             <div className="flex w-full justify-center py-8">
               <Button
@@ -143,7 +172,7 @@ export default function Home() {
           </div>
         </main>
       </div>
-      <footer className="w-full border-t border-zinc-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-zinc-800 dark:bg-black/80">
+      <footer className="fixed bottom-0 left-0 right-0 z-50 w-full backdrop-blur bg-gradient-to-b from-white/0 via-white/50 to-white/95 dark:from-black/0 dark:via-black/50 dark:to-black/95">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-center gap-6 px-4 py-6">
           <a
             href="https://www.linkedin.com/in/giorgi-meskhia-47193134a/"
